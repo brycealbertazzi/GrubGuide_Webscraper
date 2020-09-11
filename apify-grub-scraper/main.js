@@ -2,22 +2,42 @@ const Apify = require('apify');
 const {
     utils: { enqueueLinks },
 } = Apify;
+const storedRestaurantURLs = require('./restaurantURLs');
 
 const allRestaurantDataJSON = [];
 
 const printAllData = (allRestaurantDataJSON) => {
     console.log(allRestaurantDataJSON);
+    console.log(allRestaurantDataJSON.length);
 }
-
 Apify.main(async () => {
     const requestQueue = await Apify.openRequestQueue();
-    await requestQueue.addRequest({ url: 'https://www.tripadvisor.com/Restaurant_Review-g51766' });
+    const numPages = 12;
+    // let restaurantReviewURLs = [];
+
+    // for (let i = numPages - 1; i >= 0; i--) {
+    //     await requestQueue.addRequest({ url: `https://www.tripadvisor.com/Restaurants-g51766-oa${i * 30}-Bend_Central_Oregon_Oregon.html` });
+    // }
+    for (let i = 0; i < storedRestaurantURLs.data.length; i++) {
+        await requestQueue.addRequest({ url: `https://www.tripadvisor.com/${storedRestaurantURLs.data[i].slice(1)}` });
+    }
+
     const handlePageFunction = async ({ request, $ }) => {
-        const name;
-        const description;
-        const numReviews;
-        const aveReviews;
-        const websiteURL;
+        // $('.wQjYiB7z span a[href]').map((i, el) => {
+        //     if (i > 0) {
+        //         restaurantReviewURLs.push(el.attribs.href);
+        //     }
+        // });
+        // console.log(restaurantReviewURLs);
+        // console.log('///////////////////////////');
+        
+        ////////////////////SCRAPE DATA FOR PAGE/////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        let name;
+        let description;
+        let numReviews;
+        let aveReviews;
+        let websiteURL;
         let foodRating;
         let serviceRating;
         let valueRating;
@@ -27,9 +47,6 @@ Apify.main(async () => {
         let price;
         let imageURL;
         let specialDiets;
-
-        ////////////////////SCRAPE DATA FOR PAGE/////////////////////////////////////////////////////////////////////////
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         name = $('h1._3a1XQ88S').text();
         description = $('div._1lSTB9ov').text();
@@ -220,8 +237,8 @@ Apify.main(async () => {
                     atmosphereRating = rating;
             }
         });
-        ////////////////////END SCRAPE DATA FOR PAGE//////////////////////////////////////////////////////////////////////
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        //////////////////END SCRAPE DATA FOR PAGE//////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         // Store the scraped data into this JSON object
         const restaurantDataJSON = {
@@ -241,22 +258,24 @@ Apify.main(async () => {
             specialDiets: specialDiets
         }
         
-        allRestaurantDataJSON.push(restaurantDataJSON);
+        if (websiteURL.startsWith('https://www.tripadvisor.com/Restaurant_Review-g51766')) {
+            allRestaurantDataJSON.push(restaurantDataJSON);
+        }
 
         // Enqueue links
         const enqueued = await enqueueLinks({
             $,
-            requestQueue,
-            pseudoUrls: ['http[s?]://www.tripadvisor.com/Restaurant_Review-g51766[.*]Bend_Central_Oregon_Oregon.html'],
+            requestQueue: requestQueue,
+            // pseudoUrls: ['http[s?]://www.tripadvisor.com/Restaurant_Review-g51766[.*]Bend_Central_Oregon_Oregon.html'],
             baseUrl: request.loadedUrl,
         });
     };
-    // nav next disabled
-    const crawler = new Apify.CheerioCrawler({
-        requestQueue,
-        maxRequestsPerCrawl: 30,
+        
+    const pageURLCrawler = new Apify.CheerioCrawler({
+        requestQueue: requestQueue,
+        maxRequestsPerCrawl: numPages * 30,
         handlePageFunction,
     });
-    await crawler.run();
+    await pageURLCrawler.run();
     printAllData(allRestaurantDataJSON);
 });
