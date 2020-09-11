@@ -3,6 +3,7 @@ const {
     utils: { enqueueLinks },
 } = Apify;
 const storedRestaurantURLs = require('./restaurantURLs');
+const fs = require('fs');
 
 const allRestaurantDataJSON = [];
 
@@ -13,24 +14,32 @@ const printAllData = (allRestaurantDataJSON) => {
 Apify.main(async () => {
     const requestQueue = await Apify.openRequestQueue();
     const numPages = 12;
-    // let restaurantReviewURLs = [];
+    let currentPage = 1;
+    let restaurantReviewURLs = [];
 
-    // for (let i = numPages - 1; i >= 0; i--) {
+    ///For putting restaurant URLS into restaurantURLs.js///////////////////////
+    // for (let i = 0; i < numPages; i++) {
     //     await requestQueue.addRequest({ url: `https://www.tripadvisor.com/Restaurants-g51766-oa${i * 30}-Bend_Central_Oregon_Oregon.html` });
     // }
+    ////////////////////////////////////////////////////////////////////////////
+
     for (let i = 0; i < storedRestaurantURLs.data.length; i++) {
         await requestQueue.addRequest({ url: `https://www.tripadvisor.com/${storedRestaurantURLs.data[i].slice(1)}` });
     }
 
     const handlePageFunction = async ({ request, $ }) => {
+        ///For putting restaurant URLS into restaurantURLs.js///////////////////////
         // $('.wQjYiB7z span a[href]').map((i, el) => {
         //     if (i > 0) {
         //         restaurantReviewURLs.push(el.attribs.href);
         //     }
         // });
-        // console.log(restaurantReviewURLs);
-        // console.log('///////////////////////////');
-        
+        // if (currentPage === 3) {
+        //     console.log(restaurantReviewURLs);
+        // }
+        // currentPage += 1;
+        ////////////////////////////////////////////////////////////////////////////
+
         ////////////////////SCRAPE DATA FOR PAGE/////////////////////////////////////////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         let name;
@@ -259,6 +268,11 @@ Apify.main(async () => {
         }
         
         if (websiteURL.startsWith('https://www.tripadvisor.com/Restaurant_Review-g51766')) {
+            fs.appendFile('BendRestaurantData.txt', `${JSON.stringify(restaurantDataJSON)},\n`, (err) => { 
+                
+                // In case of a error throw err. 
+                if (err) throw err; 
+            }) 
             allRestaurantDataJSON.push(restaurantDataJSON);
         }
 
@@ -273,7 +287,8 @@ Apify.main(async () => {
         
     const pageURLCrawler = new Apify.CheerioCrawler({
         requestQueue: requestQueue,
-        maxRequestsPerCrawl: numPages * 30,
+        // maxRequestsPerCrawl: numPages,
+        maxRequestsPerCrawl: 256,
         handlePageFunction,
     });
     await pageURLCrawler.run();
